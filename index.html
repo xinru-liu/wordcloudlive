@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI+A Salon Live Feedback</title>
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+
+    <!-- Load d3-cloud -->
+    <script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/LIB/d3.layout.cloud.js"></script>
+    <!-- <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.js"></script> -->
+
+    <style>
+        /* Gradient background */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(120deg, #00171A, #00FF95,#ffffff);
+            background-size: 400% 400%;
+            animation: gradientBG 25s ease infinite;
+        }
+        /* This text is in Century Gothic */
+        h1 { 
+            font-family: Century Gothic,CenturyGothic,AppleGothic,sans-serif; 
+        }
+
+        /* Animate the gradient */
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Container for visualization */
+        #my_dataviz {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color: rgba(0, 58, 166, 0.895); font-size: 48px; margin-top: 40px;">AI+A Salon Live Feedback</h1>
+    <div id="my_dataviz"></div>
+    <!-- <svg></svg> -->
+
+    <script>
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        var svg = d3.select("#my_dataviz").append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .append("g")
+            .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+        async function fetchWordData() {
+            try {
+                const response = await fetch("http://127.0.0.1:5001/wordcloud");  // Ensure correct URL
+                const data = await response.json();
+                console.log("Fetched Word Cloud Data:", data);  // Debugging
+
+                if (!data || Object.keys(data).length === 0) {
+                    console.warn("No words found in word cloud data.");
+                    return [];
+                }
+                let frequencies = Object.values(data);
+                let maxFreq = Math.max(...frequencies);
+
+                // Scale font size dynamically based on frequency
+                let fontSizeScale = d3.scaleLinear()
+                    .domain([1, maxFreq])  // Min and max frequency values
+                    .range([15, 100]);  // Min and max font sizes
+
+                return Object.entries(data).map(([word, frequency]) => ({
+                    text: word,
+                    size: fontSizeScale(frequency)*3
+                }));
+            } catch (error) {
+                console.error("Error fetching word cloud data:", error);
+                return [];
+            }
+        }
+        
+        // Function to draw the word cloud
+        function drawWordCloud(words) {
+            if (!words || words.length === 0) {
+                console.warn("No words available to generate the word cloud.");
+                return;
+            }
+
+            svg.selectAll("*").remove();  // Clear previous words
+
+            var layout = d3.layout.cloud()
+                .size([width, height])
+                .words(words)
+                .padding(5)
+                .rotate(() => Math.random() * 90 - 45)
+                .fontSize(d => d.size)
+                .on("end", draw);
+
+            layout.start();
+
+            function draw(words) {
+                svg.append("g")
+                    .attr("transform", "translate(0,0)")
+                    .selectAll("text")
+                    .data(words)
+                    .enter().append("text")
+                    .style("fill", d => d3.schemeCategory10[Math.floor(Math.random() * 10)])  // Random colors
+                    .style("font-size", d => `${d.size}px`)
+                    .attr("text-anchor", "middle")
+                    .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
+                    .text(d => d.text);
+            }
+        }
+
+        // Fetch data and update the word cloud every 2 minutes
+        async function updateWordCloud() {
+            const words = await fetchWordData();
+            drawWordCloud(words);
+            setTimeout(updateWordCloud, 60000);  // Refresh every 2 minutes
+        }
+        // Adjust word cloud size on window resize
+        window.addEventListener("resize", () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            svg.attr("width", width).attr("height", height);
+            updateWordCloud();
+        });
+
+
+        // Initial run
+        updateWordCloud();
+    </script>
+</body>
+</html>
