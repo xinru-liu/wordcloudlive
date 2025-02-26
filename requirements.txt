@@ -1,0 +1,6 @@
+sounddevice
+numpy
+openai-whisper
+nltk
+Flask
+Flask-Cors
