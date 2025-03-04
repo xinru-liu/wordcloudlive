@@ -4,3 +4,4 @@ openai-whisper
 nltk
 Flask
 Flask-Cors
+imageio-ffmpeg

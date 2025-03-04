@@ -49,6 +49,7 @@
         svg {
             width: 100%;
             height: 100%;
+            overflow: visible;
         }
     </style>
 </head>
@@ -62,8 +63,8 @@
         var height = window.innerHeight;
 
         var svg = d3.select("#my_dataviz").append("svg")
-            .attr("width", "100%")
-            .attr("height", "100%")
+            .attr("width", "95%")
+            .attr("height", "95%")
             .append("g")
             .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
@@ -87,7 +88,7 @@
 
                 return Object.entries(data).map(([word, frequency]) => ({
                     text: word,
-                    size: fontSizeScale(frequency)*3
+                    size: fontSizeScale(frequency)*2.5
                 }));
             } catch (error) {
                 console.error("Error fetching word cloud data:", error);
@@ -104,43 +105,93 @@
 
             svg.selectAll("*").remove();  // Clear previous words
 
+            // generate a new layout each time. may cause words to jump if rtate is random
             var layout = d3.layout.cloud()
                 .size([width, height])
                 .words(words)
                 .padding(5)
-                .rotate(() => Math.random() * 90 - 45)
+                .rotate(() => Math.random() * 90 - 45)//remove or reduce randomness
                 .fontSize(d => d.size)
-                .on("end", draw);
+                .on("end", render);
 
             layout.start();
 
-            function draw(words) {
-                svg.append("g")
-                    .attr("transform", "translate(0,0)")
-                    .selectAll("text")
-                    .data(words)
-                    .enter().append("text")
-                    .style("fill", d => d3.schemeCategory10[Math.floor(Math.random() * 10)])  // Random colors
-                    .style("font-size", d => `${d.size}px`)
-                    .attr("text-anchor", "middle")
-                    .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
-                    .text(d => d.text);
-            }
-        }
+            // Render words using enter-update-exit with transitions
+            function render(newWords) {
+                // Data join: key by word text to track existing vs. new vs. removed words
+                let text = svg.selectAll("text")
+                .data(newWords, d => d.text);
 
-        // Fetch data and update the word cloud every 2 minutes
-        async function updateWordCloud() {
+                // EXIT: smoothly fade out/ remove old words not in the new dataset
+                text.exit()
+                .transition()
+                .duration(1000)
+                .style("opacity", 0)
+                .remove();
+
+                // ENTER: words that are new
+                let textEnter = text.enter().append("text")
+                .attr("text-anchor", "middle")
+                .style("fill", d => d3.schemeCategory10[Math.floor(Math.random() * 10)])
+                .style("font-size", d => d.size + "px")
+                .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
+                .style("opacity", 0)
+                .text(d => d.text);
+
+                // ENTER + UPDATE: merged selection
+                textEnter.merge(text)
+                .transition()
+                .duration(1000)
+                .style("opacity", 1)
+                .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
+                .style("font-size", d => d.size + "px");
+            }
+            }
+
+            // Periodically fetch new data and update the word cloud
+            async function updateWordCloud() {
             const words = await fetchWordData();
             drawWordCloud(words);
-            setTimeout(updateWordCloud, 60000);  // Refresh every 2 minutes
-        }
-        // Adjust word cloud size on window resize
-        window.addEventListener("resize", () => {
+            setTimeout(updateWordCloud, 60000); // Refresh every minute
+            }
+
+            // Handle window resizing
+            window.addEventListener("resize", () => {
             width = window.innerWidth;
             height = window.innerHeight;
-            svg.attr("width", width).attr("height", height);
+            svg.attr("transform", `translate(${width / 2}, ${height / 2})`);
             updateWordCloud();
-        });
+            });
+            // Initialize the word cloud
+
+
+            // function draw(words) {
+            //     svg.append("g")
+            //         .attr("transform", "translate(0,0)")
+            //         .selectAll("text")
+            //         .data(words)
+            //         .enter().append("text")
+            //         .style("fill", d => d3.schemeCategory10[Math.floor(Math.random() * 10)])  // Random colors
+            //         .style("font-size", d => `${d.size}px`)
+            //         .attr("text-anchor", "middle")
+            //         .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
+            //         .text(d => d.text);
+            // }
+        
+
+        // Fetch data and update the word cloud every 2 minutes
+        // async function updateWordCloud() {
+        //     const words = await fetchWordData();
+        //     drawWordCloud(words);
+        //     setTimeout(updateWordCloud, 60000);  // Refresh every 2 minutes
+        // }
+        // Adjust word cloud size on window resize
+        // window.addEventListener("resize", () => {
+        //     width = window.innerWidth;
+        //     height = window.innerHeight;
+        //     svg.attr("width", width).attr("height", height);
+        //     updateWordCloud();
+        // });
 
 
         // Initial run

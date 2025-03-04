@@ -13,6 +13,13 @@ from nltk.corpus import stopwords
 import wave
 import re  # Add this line
 
+import os
+import imageio_ffmpeg
+
+ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+os.environ["PATH"] = os.path.dirname(ffmpeg_exe) + os.pathsep + os.environ["PATH"]
+
+
 # Download NLTK stopwords
 nltk.download('stopwords')
 
